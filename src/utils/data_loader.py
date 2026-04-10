@@ -5,11 +5,15 @@ import json
 import pandas as pd
 from pathlib import Path
 
+# Абсолютный путь к корню проекта (поднимаемся из src/utils/ на 2 уровня вверх)
+PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
+README_PATH = PROJECT_ROOT / "data" / "readme.txt"
+
 load_dotenv()  # автоматически находит и читает .env в корне проекта
 key = os.getenv("GIGACHAT_CREDENTIALS")
 scope = os.getenv("GIGACHAT_SCOPE")
 
-readme = Path("data/readme.txt").read_text(encoding="utf-8")
+readme = README_PATH.read_text(encoding="utf-8")
 
 def get_features(readme):
     
@@ -29,12 +33,7 @@ def get_features(readme):
     "priority": "от 1 до 10"
   }}
 ]
-<<<<<<< HEAD
 
-
-
-=======
->>>>>>> 10c7f3e2c971cd782973c4dbcd86ec297028e986
 Правила:
 - в feature ideas ответ должен выглядеть как признаки в строгом формате? например: <
                                                                           "operation": "операция",
@@ -55,6 +54,6 @@ def get_features(readme):
 data_json = json.loads(get_features(readme))
 data = pd.json_normalize(data_json)
 if len(data):
-  data.to_csv('gigachat-torture/features_ranking.csv')
+  data.to_csv('features_ranking.csv')
 else:
    raise "Не записался df, запусти еще раз"
