@@ -15,6 +15,7 @@ scope = os.getenv("GIGACHAT_SCOPE")
 
 readme = README_PATH.read_text(encoding="utf-8")
 
+
 def get_features(readme):
     
     giga = GigaChat(credentials=key, scope=scope, verify_ssl_certs=False)
@@ -50,6 +51,7 @@ def get_features(readme):
     response = giga.chat(request_giga)
     response = response.choices[0].message.content
     return response
+
 
 data_json = json.loads(get_features(readme))
 data = pd.json_normalize(data_json)
