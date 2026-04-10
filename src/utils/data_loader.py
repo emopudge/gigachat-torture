@@ -2,7 +2,7 @@ from gigachat import GigaChat
 import json
 import pandas as pd
 
-with open('gigachat-torture\secrets.txt', 'r') as f:
+with open('gigachat-torture\\secrets.txt', 'r') as f:
     key = f.readline().strip()
 
 readme = open(r"gigachat-torture\data\readme.txt").read()
@@ -18,21 +18,26 @@ def get_features(readme):
 {readme.txt}
 
 Задача — бинарная классификация.
-Однозначно таргет
+Однозначно определи таргет.
 Ответь ТОЛЬКО в JSON формате:
 
 [
   {
     "column": "название столбца или группы",
     "reason": "почему может влиять на таргет",
-    "feature_ideas": [
-      "какие признаки можно построить"
-    ],
+    "feature_ideas": "["операция ()": "параметры (подробнее описано в "правилах")"]",
     "priority": "от 1 до 10"
   }
 ]
 
+
+
 Правила:
+- в feature ideas ответ должен выглядеть как признаки в строгом формате? например: <
+                                                                          "operation": "groupby_agg",
+                                                                          "groupby": "user_id",
+                                                                          "column": "transaction_amount",
+                                                                          "agg": "mean">
 - НЕ придумывай столбцы, которых нет в описании
 - учитывай возможные утечки таргета
 - делай упор на причинно-логическую связь
@@ -47,5 +52,5 @@ def get_features(readme):
 
 data_json = json.loads(get_features(readme))
 data = pd.json_normalize(data_json)
-print(data)
+
 data.to_csv('features_ranking.csv')
