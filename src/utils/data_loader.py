@@ -2,10 +2,10 @@ from gigachat import GigaChat
 import json
 import pandas as pd
 
-with open('gigachat-torture\secrets.txt', 'r') as f:
+with open('secrets.txt', 'r') as f:
     key = f.readline().strip()
 
-readme = open(r"gigachat-torture\data\readme.txt").read()
+readme = open(r"data/readme.txt").read()
 
 def get_features(readme):
     
