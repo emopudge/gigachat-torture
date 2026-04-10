@@ -34,10 +34,10 @@ def get_features(readme):
 
 Правила:
 - в feature ideas ответ должен выглядеть как признаки в строгом формате? например: <
-                                                                          "operation": "groupby_agg",
-                                                                          "groupby": "user_id",
-                                                                          "column": "transaction_amount",
-                                                                          "agg": "mean">
+                                                                          "operation": "операция",
+                                                                          "groupby": "существующий_столбец",
+                                                                          "column": "существующий_столбец",
+                                                                          "agg": "агрегатор">
 - НЕ придумывай столбцы, которых нет в описании
 - учитывай возможные утечки таргета
 - делай упор на причинно-логическую связь
@@ -52,5 +52,7 @@ def get_features(readme):
 
 data_json = json.loads(get_features(readme))
 data = pd.json_normalize(data_json)
-
-data.to_csv('features_ranking.csv')
+if len(data):
+  data.to_csv('gigachat-torture/features_ranking.csv')
+else:
+   raise "Не записался df, запусти еще раз"
