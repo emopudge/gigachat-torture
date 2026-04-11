@@ -18,52 +18,61 @@ readme = README_PATH.read_text(encoding="utf-8")
 
 def get_features(readme):
     
-    giga = GigaChat(credentials=key, scope=scope, verify_ssl_certs=False)
+    giga = GigaChat(credentials=key,
+    verify_ssl_certs=False, 
+    profanity_check=False,
+    scope='GIGACHAT_API_CORP')
 
-    PROMPT = """Ты — эксперт по анализу табличных данных.
+    PROMPT = f"""Ты — эксперт по анализу табличных данных.
 Тебе дано описание датасета:
-{readme}
-Задача — бинарная классификация.
-Однозначно определи таргет.
-Ответь ТОЛЬКО в JSON формате:
+*{readme}*
+Задача — бинарная классификация таргета (целевого столбца)
+
+Ответь ТОЛЬКО в JSON формате. Никакого другого текста, комментариев, пояснений или markdown-разметки.
+Вывод должен начинаться с "[" и заканчиваться "]".
+
+Формат JSON:
 [
   {{
-    "column": "название столбца или группы",
-    "reason": "почему может влиять на таргет",
-    "feature_ideas": "["операция ()": "параметры (подробнее описано в "правилах")"]",
-    "priority": "от 1 до 10"
+    "column": "название столбца или группы (только из описания)",
+    "reason": "почему этот столбец/группа может влиять на таргет (причинно-следственная связь, без общих фраз)",
+    "feature_ideas": [
+      {{
+        "operation": "операция (например: group_agg, binning, rolling, diff, ratio)",
+        "groupby": "существующий_столбец (если нужен, иначе null)",
+        "column": "существующий_столбец (над которым делаем операцию)",
+        "agg": "агрегатор (mean, median, std, count, min, max, sum — только если operation = group_agg или rolling)"
+      }}
+    ],
+    "priority": "целое число от 1 до 10 (10 — самый важный признак)"
   }}
 ]
 
 Правила:
-- в feature ideas ответ должен выглядеть как признаки в строгом формате? например: <
-                                                                          "operation": "операция",
-                                                                          "groupby": "существующий_столбец",
-                                                                          "column": "существующий_столбец",
-                                                                          "agg": "агрегатор">
-- НЕ придумывай столбцы, которых нет в описании
-- учитывай возможные утечки таргета
-- делай упор на причинно-логическую связь
-- избегай общих фраз
-- НЕ пиши ничего кроме json
-          """
+- НЕ придумывай столбцы, которых нет в описании. НЕ создавай новых колонок в JSON!
+- Учитывай возможные утечки таргета (например, не использовать признаки, которые вычисляются из будущего).
+- feature_ideas может содержать от 1 до 3 объектов. Заполни feature_ideas как минимум в 3-х записях.
+- Если операция не требует groupby или agg, ставь null.
+- Пример допустимого значения "operation": "group_agg", "binning", "rolling_mean", "rolling_std", "diff", "ratio", "count_occurrences".
+
+Проверь свой вывод на валидность JSON (кавычки, запятые, скобки, отсутствие комментариев).
+Никаких фраз вроде "Вот ваш JSON" — только чистый JSON. Он не должен быть пустым.
+
+КРИТИЧНО: В финальном ответе должно быть РОВНО 5 записей с НЕ-пустыми feature_ideas.
+- Если идея не требует сложной операции, используй: "operation": "keep_original", "column": "имя_колонки"
+- Заполни feature_ideas во всех 5 записях (минимум 1 объект в массиве)
+- Верни только топ-5 самых важных признаков по приоритету (отсортируй по priority убыванию)
+- Если сомневаешься — используй простые операции: binning, one_hot_encoding, keep_original
+"""
     request_giga = PROMPT
     response = giga.chat(request_giga)
     response = response.choices[0].message.content
     return response
 
 
-try:
-    raw_response = get_features(readme)
-    data_json = json.loads(raw_response)
-    data = pd.json_normalize(data_json)
-    print("✅ LLM ответил:")
-    print(data)
-    data.to_csv('features_ranking.csv', index=False)
-    print("💾 Сохранено в features_ranking.csv")
-    
-except json.JSONDecodeError as e:
-    print(f"❌ LLM вернул не JSON: {e}")
-    print(f"🔍 Сырой ответ (первые 300 символов):\n{raw_response[:300]}")
-except Exception as e:
-    print(f"❌ Ошибка: {type(e).__name__}: {e}")
+data_json = json.loads(get_features(readme))
+data = pd.json_normalize(data_json)
+if len(data):
+  data.to_csv('features_ranking.csv')
+else:
+   raise "Не записался df, запусти еще раз"
