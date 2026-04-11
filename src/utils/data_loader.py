@@ -53,9 +53,17 @@ def get_features(readme):
     return response
 
 
-data_json = json.loads(get_features(readme))
-data = pd.json_normalize(data_json)
-if len(data):
-  data.to_csv('features_ranking.csv')
-else:
-   raise "Не записался df, запусти еще раз"
+try:
+    raw_response = get_features(readme)
+    data_json = json.loads(raw_response)
+    data = pd.json_normalize(data_json)
+    print("✅ LLM ответил:")
+    print(data)
+    data.to_csv('features_ranking.csv', index=False)
+    print("💾 Сохранено в features_ranking.csv")
+    
+except json.JSONDecodeError as e:
+    print(f"❌ LLM вернул не JSON: {e}")
+    print(f"🔍 Сырой ответ (первые 300 символов):\n{raw_response[:300]}")
+except Exception as e:
+    print(f"❌ Ошибка: {type(e).__name__}: {e}")
