@@ -37,7 +37,6 @@ def clean_features_df(df, ideas_col='feature_ideas'):
 
     return df
 
-
 class FeatureGeneratorMVP:
 
     def __init__(self, features_df, ideas_col='feature_ideas'):
