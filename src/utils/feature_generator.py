@@ -1,23 +1,21 @@
 import pandas as pd
 from pathlib import Path
-from sklearn.preprocessing import OneHotEncoder
 import json
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
-README_PATH = PROJECT_ROOT / 'features_ranking.csv'
+CSV_RANK_PATH = PROJECT_ROOT / 'features_ranking.csv'
 MERGED_TABLE_PATH = PROJECT_ROOT / "data" / "merged_table.csv"
-features_ranked = pd.read_csv(README_PATH)
+features_ranked = pd.read_csv(CSV_RANK_PATH)
 data = pd.read_csv(MERGED_TABLE_PATH)
+
 
 def clean_features_df(df, ideas_col='feature_ideas'):
     df = df.copy()
 
-    # убираем NaN и пустые строки
     df = df[df[ideas_col].notna()]
     df = df[df[ideas_col].astype(str).str.strip() != ""]
     df = df[df[ideas_col].astype(str).str.strip() != "[]"]
 
-    # безопасный парсинг JSON
     def safe_parse(x):
         if isinstance(x, list):
             return x
@@ -28,7 +26,6 @@ def clean_features_df(df, ideas_col='feature_ideas'):
             return json.loads(x)
         except json.JSONDecodeError:
             try:
-                # костыль: заменяем одинарные кавычки на двойные
                 x_fixed = x.replace("'", '"')
                 return json.loads(x_fixed)
             except Exception:
@@ -36,7 +33,6 @@ def clean_features_df(df, ideas_col='feature_ideas'):
 
     df[ideas_col] = df[ideas_col].apply(safe_parse)
 
-    # оставляем только непустые списки
     df = df[df[ideas_col].apply(lambda x: isinstance(x, list) and len(x) > 0)]
 
     return df
@@ -46,78 +42,71 @@ class FeatureGeneratorMVP:
     def __init__(self, features_df, ideas_col='feature_ideas'):
         self.features_df = clean_features_df(features_df, ideas_col)
         self.ideas_col = ideas_col
-        self.encoder = None
+        self.aggregations = []
 
-    def _extract_onehot_columns(self):
-        cols = []
+    def _extract_groupby_features(self):
+        aggs = []
 
         for _, row in self.features_df.iterrows():
             ideas = row[self.ideas_col]
 
-            if not isinstance(ideas, list):
-                continue
-
             for idea in ideas:
-                if isinstance(idea, dict) and idea.get("operation") == "one_hot_encoding":
-                    cols.append(row["column"])
+                if isinstance(idea, dict) and idea.get("operation") == "group_agg":
+                    aggs.append({
+                        "groupby": idea.get("groupby"),
+                        "column": idea.get("column"),
+                        "agg": idea.get("agg")
+                    })
+        return aggs
 
-        return list(set(cols))  # убираем дубли
+    def fit(self, df):
+        self.aggregations = self._extract_groupby_features()
+        self.groupby_tables = []
 
-    def implement_onehotenc(self, df_raw):
-        df_result = df_raw.copy()
+        for agg in self.aggregations:
+            group_col = agg["groupby"]
+            target_col = agg["column"]
 
-        onehot_cols = self._extract_onehot_columns()
-        onehot_cols = [c for c in onehot_cols if c in df_result.columns]
+            if group_col not in df.columns or target_col not in df.columns:
+                print(f"Skipping aggregation: missing column(s) - groupby='{group_col}', target='{target_col}'")
+                continue 
+            agg_func = agg["agg"]
 
-        if not onehot_cols:
-            return df_result
+            if not isinstance(group_col, list):
+                group_col = [group_col]
 
-        encoder = OneHotEncoder(sparse_output=False, handle_unknown='ignore')
+            grouped = (
+                df.groupby(group_col)[target_col]
+                .agg(agg_func)
+                .reset_index()
+            )
 
-        encoded_array = encoder.fit_transform(df_result[onehot_cols])
+            # имя новой фичи
+            new_col = "_".join(group_col) + f"_{target_col}_{agg_func}"
+            grouped = grouped.rename(columns={target_col: new_col})
 
-        # имена новых колонок
-        encoded_cols = encoder.get_feature_names_out(onehot_cols)
+            self.groupby_tables.append((group_col, grouped))
 
-        df_encoded = pd.DataFrame(encoded_array, columns=encoded_cols, index=df_result.index)
+    def transform(self, df):
+        df_result = df.copy()
 
-        return pd.concat(
-            [df_result.drop(columns=onehot_cols), df_encoded],
-            axis=1
-        )
-    
-    def fit(self, df_raw):
-        onehot_cols = self._extract_onehot_columns()
-        onehot_cols = [c for c in onehot_cols if c in df_raw.columns]
+        for group_cols, grouped_df in self.groupby_tables:
+            df_result = df_result.merge(
+                grouped_df,
+                on=group_cols,
+                how="left"
+            )
 
-        self.onehot_cols = onehot_cols
+        return df_result
 
-        self.encoder = OneHotEncoder(sparse_output=False, handle_unknown='ignore')
-        self.encoder.fit(df_raw[onehot_cols])
-
-    def transform(self, df_raw):
-        df_result = df_raw.copy()
-
-        encoded_array = self.encoder.transform(df_result[self.onehot_cols])
-        encoded_cols = self.encoder.get_feature_names_out(self.onehot_cols)
-
-        df_encoded = pd.DataFrame(encoded_array, columns=encoded_cols, index=df_result.index)
-
-        return pd.concat(
-            [df_result.drop(columns=self.onehot_cols), df_encoded],
-            axis=1
-        )
-    
     def fit_transform(self, df):
         self.fit(df)
         return self.transform(df)
-
-
-
-
-
-
-
-
+    
+generator = FeatureGeneratorMVP(features_ranked)
+data_transformed = generator.fit_transform(data)
+print(data_transformed.columns)
+print(data_transformed.columns.size)
+data_transformed.to_csv('data_transformed.csv')
 
 
