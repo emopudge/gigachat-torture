@@ -64,6 +64,12 @@ def get_features(readme):
 ВАЖНО! Проверь свой вывод на валидность JSON (кавычки, запятые, скобки, отсутствие комментариев).
 ВАЖНО! Проверь, что там, где ты указал операцию, ты указал и столбец, на котором ее нужно применить.
 Никаких фраз вроде "Вот ваш JSON" — только чистый JSON. Он не должен быть пустым.
+
+КРИТИЧНО: В финальном ответе должно быть РОВНО 5 записей с НЕ-пустыми feature_ideas.
+- Если идея не требует сложной операции, используй: "operation": "keep_original", "column": "имя_колонки"
+- Заполни feature_ideas во всех 5 записях (минимум 1 объект в массиве)
+- Верни только топ-5 самых важных признаков по приоритету (отсортируй по priority убыванию)
+- Если сомневаешься — используй простые операции: binning, one_hot_encoding, keep_original
 """
     request_giga = PROMPT
     response = giga.chat(request_giga)
@@ -74,7 +80,6 @@ def get_features(readme):
 data_json = json.loads(get_features(readme))
 data = pd.json_normalize(data_json)
 if len(data):
-  output_path = PROJECT_ROOT / "features_ranking.csv"
-  data.to_csv(output_path, index=False, encoding="utf-8")
+  data.to_csv('features_ranking.csv')
 else:
    raise "Не записался df, запусти еще раз"
