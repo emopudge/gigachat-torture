@@ -7,7 +7,7 @@ CSV_RANK_PATH = PROJECT_ROOT / 'features_ranking.csv'
 MERGED_TABLE_PATH = PROJECT_ROOT / "data" / "merged_table.csv"
 features_ranked = pd.read_csv(CSV_RANK_PATH)
 data = pd.read_csv(MERGED_TABLE_PATH)
-
+initial_num_of_features = len(data.columns)
 
 def clean_features_df(df, ideas_col='feature_ideas'):
     df = df.copy()
@@ -43,6 +43,7 @@ class FeatureGeneratorMVP:
         self.features_df = clean_features_df(features_df, ideas_col)
         self.ideas_col = ideas_col
         self.aggregations = []
+        self.gen_features = []
 
     def _extract_groupby_features(self):
         aggs = []
@@ -83,6 +84,7 @@ class FeatureGeneratorMVP:
 
             # имя новой фичи
             new_col = "_".join(group_col) + f"_{target_col}_{agg_func}"
+            self.gen_features.append(new_col)
             grouped = grouped.rename(columns={target_col: new_col})
 
             self.groupby_tables.append((group_col, grouped))
@@ -107,6 +109,13 @@ generator = FeatureGeneratorMVP(features_ranked)
 data_transformed = generator.fit_transform(data)
 print(data_transformed.columns)
 print(data_transformed.columns.size)
-data_transformed.to_csv('data_transformed.csv')
+
+
+
+new_features = generator.gen_features.append('target')
+df_gen_features = data_transformed[[new_features]]
+print(df_gen_features.columns)
+print(df_gen_features.columns.size)
+df_gen_features.to_csv('df_gen_features.csv')
 
 
